@@ -1,6 +1,6 @@
-import contactsService from "../../models/contacts/contacts.js";
+import contactsService from "../models/contacts/contacts.js";
 
-import { HttpError } from "../../helpers/index.js";
+import { HttpError } from "../helpers/index.js";
 
 import { ctrlWrapper } from "../decorators/index.js";
 
