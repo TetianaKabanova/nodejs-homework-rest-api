@@ -3,7 +3,6 @@ import { HttpError } from "../helpers/index.js";
 import { ctrlWrapper } from "../decorators/index.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import "dotenv/config";
 
 const { JWT_SECRET } = process.env;
 
@@ -36,11 +35,14 @@ const signIn = async (req, res) => {
     throw HttpError(401, "Email or password wrong");
   }
 
+  const { _id: id } = user;
+
   const payload = {
-    id: user._id,
+    id,
   };
 
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "23h" });
+  await User.findByIdAndUpdate(id, { token });
   //   const decodedToken = jwt.decode(token);
   //   console.log(decodedToken);
 
@@ -49,7 +51,53 @@ const signIn = async (req, res) => {
   });
 };
 
+const getCurrent = (req, res) => {
+  const { email, subscription } = req.user;
+  res.json({
+    email,
+    subscription,
+  });
+};
+
+const signOut = async (req, res) => {
+  const { _id } = req.user;
+  try {
+    const user = await User.findByIdAndUpdate(_id, { token: "" });
+    if (!user) {
+      throw HttpError(401, "Not authorized");
+    }
+    res.status(204);
+  } catch (error) {
+    throw HttpError(500, "Internal Server Error");
+  }
+};
+
+const updateSubscription = async (req, res) => {
+  const { _id: id } = req.user;
+  const { subscription } = req.body;
+
+  const { error } = userUpdateSubscriptionSchema.validate({ subscription });
+  if (error) {
+    throw HttpError(400, error.message);
+  }
+
+  const userUpdated = await User.findByIdAndUpdate(
+    id,
+    { subscription },
+    { new: true }
+  );
+
+  if (!userUpdated) {
+    throw HttpError(404, "User not found");
+  }
+
+  res.json(userUpdated);
+};
+
 export default {
   signUp: ctrlWrapper(signUp),
   signIn: ctrlWrapper(signIn),
+  getCurrent: ctrlWrapper(getCurrent),
+  signOut: ctrlWrapper(signOut),
+  updateSubscription: ctrlWrapper(updateSubscription),
 };
