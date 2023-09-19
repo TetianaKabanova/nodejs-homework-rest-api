@@ -1,4 +1,4 @@
-import User from "../models/User.js";
+import User, { userUpdateSubscriptionSchema } from "../models/User.js";
 import { HttpError } from "../helpers/index.js";
 import { ctrlWrapper } from "../decorators/index.js";
 import bcrypt from "bcryptjs";
@@ -18,8 +18,8 @@ const signUp = async (req, res) => {
   const newUser = await User.create({ ...req.body, password: hashPassword });
 
   res.status(201).json({
-    subscription: newUser.subscription,
     email: newUser.email,
+    subscription: newUser.subscription,
   });
 };
 
@@ -27,12 +27,12 @@ const signIn = async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email });
   if (!user) {
-    throw HttpError(401, "Email or password wrong");
+    throw HttpError(401, "Email or password is wrong");
   }
 
   const passwordCompare = await bcrypt.compare(password, user.password);
   if (!passwordCompare) {
-    throw HttpError(401, "Email or password wrong");
+    throw HttpError(401, "Email or password is wrong");
   }
 
   const { _id: id } = user;
@@ -43,8 +43,6 @@ const signIn = async (req, res) => {
 
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "23h" });
   await User.findByIdAndUpdate(id, { token });
-  //   const decodedToken = jwt.decode(token);
-  //   console.log(decodedToken);
 
   res.json({
     token,
@@ -68,12 +66,12 @@ const signOut = async (req, res) => {
     }
     res.status(204);
   } catch (error) {
-    throw HttpError(500, "Internal Server Error");
+    throw HttpError(401, "Not authorized");
   }
 };
 
 const updateSubscription = async (req, res) => {
-  const { _id: id } = req.user;
+  const { _id } = req.user;
   const { subscription } = req.body;
 
   const { error } = userUpdateSubscriptionSchema.validate({ subscription });
@@ -81,17 +79,17 @@ const updateSubscription = async (req, res) => {
     throw HttpError(400, error.message);
   }
 
-  const userUpdated = await User.findByIdAndUpdate(
-    id,
+  const userUpdate = await User.findByIdAndUpdate(
+    _id,
     { subscription },
     { new: true }
   );
 
-  if (!userUpdated) {
-    throw HttpError(404, "User not found");
+  if (!userUpdate) {
+    throw HttpError(404, "User is not found");
   }
 
-  res.json(userUpdated);
+  res.json(userUpdate);
 };
 
 export default {

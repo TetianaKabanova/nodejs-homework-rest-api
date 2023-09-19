@@ -12,10 +12,10 @@ const getAll = async (req, res) => {
   } else if (favorite === "false") {
     filter.favorite = false;
   }
-  const result = await Contact.find(filter, { skip, limit }).populate(
-    "owner",
-    "email subscription"
-  );
+  const result = await Contact.find(filter, "-createdAt -updatedAt", {
+    skip,
+    limit,
+  }).populate("owner", "email subscription");
   res.json(result);
 };
 
@@ -41,7 +41,7 @@ const updateById = async (req, res) => {
     runValidators: true,
   });
   if (!result) {
-    throw HttpError(404, `Contact with id=${id} not found`);
+    throw HttpError(404, `Contact with id=${id} is not found`);
   }
   res.json(result);
 };
@@ -50,7 +50,7 @@ const deleteById = async (req, res) => {
   const { id } = req.params;
   const result = await Contact.findByIdAndDelete(id);
   if (!result) {
-    throw HttpError(404, `Contact with id=${id} not found`);
+    throw HttpError(404, `Contact with id=${id} is not found`);
   }
   res.json({ message: "Deleted successfully" });
 };

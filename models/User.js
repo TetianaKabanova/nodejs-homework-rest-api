@@ -30,15 +30,13 @@ const userSchema = new Schema(
 );
 
 userSchema.post("save", handleSaveError);
-
 userSchema.pre("findOneAndUpdate", runValidateAtUpdate);
-
 userSchema.post("findOneAndUpdate", handleSaveError);
 
 export const userSignUpSchema = Joi.object({
   email: Joi.string().pattern(emailRegexp).required(),
   password: Joi.string().min(6).required(),
-  subscription: Joi.string().required(),
+  // subscription: Joi.string().required(),
 });
 
 export const userSignInSchema = Joi.object({
@@ -46,7 +44,7 @@ export const userSignInSchema = Joi.object({
   password: Joi.string().min(6).required(),
 });
 
-export const userUpdateSubscrSchema = Joi.object({
+export const userUpdateSubscriptionSchema = Joi.object({
   subscription: Joi.string().valid("starter", "pro", "business").required(),
 });
 
