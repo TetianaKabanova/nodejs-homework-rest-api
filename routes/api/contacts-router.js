@@ -16,8 +16,6 @@ contactsRouter.use(authenticate);
 contactsRouter.get("/", contactsController.getAll);
 contactsRouter.get("/:id", isValidId, contactsController.getById);
 
-// upload.fields([{name: "poster", maxCount: 1}]) - кілька полів
-// upload.array("poster", 8) - в одному полі кілька файлів
 contactsRouter.post(
   "/",
   upload.single("avatar"),
