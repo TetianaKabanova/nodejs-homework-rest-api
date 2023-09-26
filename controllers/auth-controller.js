@@ -13,15 +13,11 @@ const { JWT_SECRET } = process.env;
 
 const signUp = async (req, res) => {
   const { email, password } = req.body;
-
-  // Check if email is already in use
   const existingUser = await User.findOne({ email });
   if (existingUser) {
     throw HttpError(409, "Email is already in use");
   }
-
   const hashPassword = await bcrypt.hash(password, 10);
-
   const newUser = await User.create({ ...req.body, password: hashPassword });
 
   res.status(201).json({
@@ -42,7 +38,6 @@ const signIn = async (req, res) => {
   const payload = { id };
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "23h" });
 
-  // Update user's token
   await User.findByIdAndUpdate(id, { token });
 
   res.json({
@@ -60,37 +55,28 @@ const getCurrent = (req, res) => {
 
 const signOut = async (req, res) => {
   const { _id } = req.user;
-
-  // Update user's token to empty string
   const user = await User.findByIdAndUpdate(_id, { token: "" });
-
   if (!user) {
     throw HttpError(401, "Not authorized");
   }
-
   res.sendStatus(204);
 };
 
 const updateSubscription = async (req, res) => {
   const { _id } = req.user;
   const { subscription } = req.body;
-
-  // Validate subscription using Joi schema
   const { error } = userUpdateSubscriptionSchema.validate({ subscription });
   if (error) {
     throw HttpError(400, error.message);
   }
-
   const userUpdate = await User.findByIdAndUpdate(
     _id,
     { subscription },
     { new: true }
   );
-
   if (!userUpdate) {
     throw HttpError(404, "User not found");
   }
-
   res.json(userUpdate);
 };
 
