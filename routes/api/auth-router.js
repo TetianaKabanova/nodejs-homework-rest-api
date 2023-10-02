@@ -11,6 +11,7 @@ const userSignInValidate = validateBody(userSchema.userSignInSchema);
 const userUpdateSubscriptionValidate = validateBody(
   userSchema.userUpdateSubscriptionSchema
 );
+const userEmailValidate = validateBody(userSchema.userEmailSchema);
 
 authRouter.post("/registre", userSignUpValidate, authController.signUp);
 authRouter.post("/login", userSignInValidate, authController.signIn);
@@ -29,5 +30,8 @@ authRouter.patch(
   uploadAvatar.single("avatar"),
   authController.updateAvatar
 );
+
+authRouter.get("/verify/:verificationCode", authController.verify);
+authRouter.post("/verify", userEmailValidate, authController.resendVerifyEmail);
 
 export default authRouter;
