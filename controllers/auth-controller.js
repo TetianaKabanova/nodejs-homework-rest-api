@@ -18,9 +18,15 @@ const signUp = async (req, res) => {
   if (existingUser) {
     throw HttpError(409, "Email is already in use");
   }
+  const avatarURL = gravatar.url(email);
   const hashPassword = await bcrypt.hash(password, 10);
   const verificationCode = nanoid();
-  const newUser = await User.create({ ...req.body, password: hashPassword });
+  const newUser = await User.create({
+    ...req.body,
+    password: hashPassword,
+    avatarURL,
+    verificationCode,
+  });
   const verifyEmail = {
     to: email,
     subject: "Verify Email",
@@ -38,7 +44,7 @@ const signUp = async (req, res) => {
 
 const verify = async (req, res) => {
   const { verificationCode } = req.params;
-  const user = await User.findOne({ email: verificationCode });
+  const user = await User.findOne({ verificationCode });
   if (!user) {
     throw HttpError(404);
   }
@@ -47,12 +53,12 @@ const verify = async (req, res) => {
     verificationCode: "",
   });
 
-  res.json({ message: "Email verify success" });
+  res.status(200).json({ message: "Verification successful" });
 };
 
 const resendVerifyEmail = async (req, res) => {
   const { email } = req.body;
-  const user = await User.findOne({ email: email });
+  const user = await User.findOne({ email });
   if (!user) {
     throw HttpError(404, "User not found");
   }
@@ -70,9 +76,7 @@ const resendVerifyEmail = async (req, res) => {
 
   await sendEmail(verifyEmail);
 
-  res.json({
-    code: 200,
-    status: "success",
+  res.status(200).json({
     message: "Verification email resend",
   });
 };
@@ -114,7 +118,7 @@ const signOut = async (req, res) => {
   if (!user) {
     throw HttpError(401, "Not authorized");
   }
-  res.sendStatus(204);
+  res.status(204);
 };
 
 const updateSubscription = async (req, res) => {
@@ -150,9 +154,7 @@ const updateAvatar = async (req, res) => {
     const avatarURL = path.join("avatars", filename);
     await User.findByIdAndUpdate(_id, { avatarURL });
 
-    res.json({
-      status: "Success",
-      code: 200,
+    res.status(200).json({
       data: {
         result: { avatarURL },
       },
