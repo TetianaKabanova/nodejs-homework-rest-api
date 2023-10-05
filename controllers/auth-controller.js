@@ -1,5 +1,5 @@
 import User, { userUpdateSubscriptionSchema } from "../models/User.js";
-import { HttpError } from "../helpers/index.js";
+import { HttpError, sendEmail } from "../helpers/index.js";
 import { ctrlWrapper } from "../decorators/index.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -7,18 +7,35 @@ import gravatar from "gravatar";
 import path from "path";
 import fs from "fs/promises";
 import Jimp from "jimp";
+import { nanoid } from "nanoid";
 
 const avatarsDir = path.resolve("public", "avatars");
-const { JWT_SECRET } = process.env;
+const { JWT_SECRET, BASE_URL } = process.env;
 
 const signUp = async (req, res) => {
   const { email, password } = req.body;
-  const existingUser = await User.findOne({ email });
-  if (existingUser) {
+  const user = await User.findOne({ email });
+  if (user) {
     throw HttpError(409, "Email is already in use");
   }
+  const avatarURL = gravatar.url(email);
   const hashPassword = await bcrypt.hash(password, 10);
-  const newUser = await User.create({ ...req.body, password: hashPassword });
+  const verificationToken = nanoid();
+  const newUser = await User.create({
+    ...req.body,
+    password: hashPassword,
+    avatarURL,
+    verificationToken,
+  });
+
+  const verifyEmail = {
+    to: email,
+    subject: "Verify Email",
+    html: `<a target="_blank" href="${BASE_URL}/api/auth/verify/${verificationToken}">
+        Click to verify Email
+      </a>`,
+  };
+  await sendEmail(verifyEmail);
 
   res.status(201).json({
     email: newUser.email,
@@ -26,11 +43,59 @@ const signUp = async (req, res) => {
   });
 };
 
+const verify = async (req, res) => {
+  const { verificationToken } = req.params;
+  const user = await User.findOne({ verificationToken });
+  if (!user) {
+    throw HttpError(404);
+  }
+  await User.findByIdAndUpdate(user._id, {
+    verify: true,
+    verificationToken: null,
+  });
+
+  res.status(200).json({ message: "Verification successful" });
+};
+
+const resendVerifyEmail = async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+  if (!user) {
+    throw HttpError(404, "User not found");
+  }
+  if (user.verify) {
+    throw HttpError(400, "Verification has already been passed");
+  }
+
+  const verifyEmail = {
+    to: email,
+    subject: "Verify Email",
+    html: `<a target="_blank" href="${BASE_URL}/api/auth/verify/${user.verificationToken}">
+        Click to verify Email
+      </a>`,
+  };
+
+  await sendEmail(verifyEmail);
+
+  res.status(200).json({
+    message: "Verification email resend",
+  });
+};
+
 const signIn = async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email });
 
-  if (!user || !(await bcrypt.compare(password, user.password))) {
+  if (!user) {
+    throw HttpError(401, "Email or password is wrong");
+  }
+
+  if (!user.verify) {
+    throw HttpError(404, "User not found");
+  }
+
+  const passwordCompare = await bcrypt.compare(password, user.password);
+  if (!passwordCompare) {
     throw HttpError(401, "Email or password is wrong");
   }
 
@@ -42,6 +107,10 @@ const signIn = async (req, res) => {
 
   res.json({
     token,
+    user: {
+      email: user.email,
+      subscription: user.subscription,
+    },
   });
 };
 
@@ -59,7 +128,7 @@ const signOut = async (req, res) => {
   if (!user) {
     throw HttpError(401, "Not authorized");
   }
-  res.sendStatus(204);
+  res.status(204);
 };
 
 const updateSubscription = async (req, res) => {
@@ -95,9 +164,7 @@ const updateAvatar = async (req, res) => {
     const avatarURL = path.join("avatars", filename);
     await User.findByIdAndUpdate(_id, { avatarURL });
 
-    res.json({
-      status: "Success",
-      code: 200,
+    res.status(200).json({
       data: {
         result: { avatarURL },
       },
@@ -111,6 +178,8 @@ const updateAvatar = async (req, res) => {
 export default {
   signUp: ctrlWrapper(signUp),
   signIn: ctrlWrapper(signIn),
+  verify: ctrlWrapper(verify),
+  resendVerifyEmail: ctrlWrapper(resendVerifyEmail),
   getCurrent: ctrlWrapper(getCurrent),
   signOut: ctrlWrapper(signOut),
   updateSubscription: ctrlWrapper(updateSubscription),
